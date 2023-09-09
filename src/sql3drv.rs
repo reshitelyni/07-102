@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : sql3drv.rs
-*   Last Modified : 2023-09-09 14:07
+*   Last Modified : 2023-09-09 16:41
 *   Describe      : Database interface
 *
 * ====================================================*/
@@ -58,9 +58,9 @@ impl Sql3Connection{
         conn.execute("PRAGMA foreign_keys=ON", ())?;
         conn.execute("create table user(id integer primary key autoincrement, b30 float(5, 5), r10 float(5, 5), ptt float(5, 5), cached int)", ())?;
         conn.execute("create table song(id integer primary key autoincrement, name varchar(100), pack varchar(100), level varchar(10), constant float(5, 5))", ())?;
-        conn.execute("create table score(id integer primary key autoincrement, songid int, sc int, foreign key(id) references song(id))", ())?;
+        conn.execute("create table score(id integer primary key autoincrement, songid int, sc int, foreign key(songid) references song(id))", ())?;
         conn.execute("create table alias(songid int, alname varchar(100), primary key(songid, alname), foreign key(songid) references song(id))", ())?;
-        conn.execute("insert into user(b30, r10, ptt, cached) values(0.0, 0.0, 0.0, 0)", ())?;
+        conn.execute("insert into user(b30, r10, ptt, cached) values(0.0, 0.0, 0.0, 1)", ())?;
         Ok(())
     }
 
