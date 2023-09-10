@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : record.rs
-*   Last Modified : 2023-09-10 11:59
+*   Last Modified : 2023-09-10 13:17
 *   Describe      : Record struct type.
 *
 * ====================================================*/
@@ -20,6 +20,13 @@ pub struct SongRank{
     pub best: f32
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct User{
+    pub b30: f32,
+    pub r10: f32,
+    pub ptt: f32
+}
+
 impl PartialEq for SongRank{
     fn eq(&self, other: &Self) -> bool{
         (&self.name, &self.pack, &self.level, self.constant, self.best)
@@ -27,3 +34,5 @@ impl PartialEq for SongRank{
     }
 }
 impl Eq for SongRank{}
+
+impl Eq for User{}

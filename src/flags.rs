@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : flags.rs
-*   Last Modified : 2023-09-06 17:27
+*   Last Modified : 2023-09-10 13:13
 *   Describe      : Flags parser.
 *
 * ====================================================*/
@@ -60,7 +60,7 @@ pub enum ScoreArgsAction{
     Ls {limit: Option<u32>, #[arg(short = 's', long = "sort")] sort: bool, #[arg(short = 'r', long = "reverse")] reverse: bool},
     Add {name: String, pack: Option<String>, #[arg(value_enum)] level: SongLevel, score: u32},
     Delete {id: Vec<u32>, #[arg(short = 'a', long = "all")] clear: bool},
-    Potential {potential: f32},
+    Potential {potential: Option<f32>},
     B30,
     R10
 }

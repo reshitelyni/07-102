@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-10 12:02
+*   Last Modified : 2023-09-10 13:26
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -90,6 +90,16 @@ impl CrudSvr{
 
         Ok(all_score.iter_mut().take(limit).map(|x| x.take().unwrap()).collect())
     }
+
+    pub fn query_user(&mut self) -> Result<record::User>{
+        let b30 = self.query_b30()?;
+        let (r10, ptt) = self.conn
+                             .prepare("select r10, ptt from user")?
+                             .query_row([], |row| {
+                                 Ok((row.get(0).unwrap(), row.get(1).unwrap()))
+                             })?;
+        Ok(record::User{b30, r10, ptt})
+    }
 }
 
 #[cfg(test)]
@@ -133,5 +143,22 @@ mod tests{
 
         assert_eq!(srv.query_score(1, false).unwrap(), Vec::from([record::SongRank{name: "s2".to_owned(), pack: "p1".to_owned(), level: "past".to_owned(), constant: 5.0, best: 6.0}]));
         assert_eq!(srv.query_score(1, true).unwrap(), Vec::from([record::SongRank{name: "s1".to_owned(), pack: "p2".to_owned(), level: "past".to_owned(), constant: 3.0, best: 2.0}]));
+    }
+
+    #[test]
+    fn test_query_user() {
+        let mut srv = fake_db();
+
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+
+        match srv.query_user() {
+            Err(_) => panic!("it should be valid"),
+            Ok(record::User{b30, r10, ptt}) => {
+                assert_eq!(b30, 4.0 / 30.0);
+                assert_eq!(ptt, 0.0);
+                assert_eq!(r10, -0.4);
+            }
+        }
     }
 }
