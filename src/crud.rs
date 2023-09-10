@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-10 14:34
+*   Last Modified : 2023-09-10 17:15
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -128,6 +128,93 @@ impl CrudSvr{
         self.conn.execute("update user set cached = 0")?;
         self.conn.execute(format!("update score set songid = {songid}, sc = {sc} where id = {id}").as_str())
     }
+
+    pub fn query_scoreid(&self, songid: u32, sc: u32) -> Result<Option<u32>>{
+        Ok(self.conn
+               .prepare(format!("select id from score where songid = {songid} and sc = {sc}").as_str())?
+               .query_map([], |row| row.get(0))?
+               .map(|x| x.expect("it should be valid"))
+               .collect::<Vec<u32>>()
+               .get(0)
+               .take()
+               .copied()
+        )
+    }
+}
+
+impl CrudSvr{
+    //add new song do not interrupt current b30
+    pub fn add_song(&self, name: &str, pack: &str, level: &str, constant: f32) -> Result<usize>{
+        self.conn
+            .execute(format!("insert into song(name, pack, level, constant) values(\'{name}\', \'{pack}\', \'{level}\', {constant})").as_str())
+    }
+
+    //query itself is safe to cache
+    pub fn query_song(&self, name: Option<String>, pack: Option<String>, level: Option<String>, constant: Option<f32>, difficulty: Option<record::SongDifficulty>) -> Result<Vec<record::Song>>{
+        Ok(
+            self.conn
+                .prepare(
+                    format!("select id, name, pack, level, constant from song where name like \'{}\' and pack like \'{}\' {} {} {}",
+                                match name {Some(name) => format!("%{name}%"), None => "%".to_owned()},
+                                match pack {Some(pack) => format!("%{pack}%"), None => "%".to_owned()},
+                                match level {Some(level) => format!("and level = \'{level}\'"), None => String::new()},
+                                match constant {Some(constant) => format!("and constant = {constant}"), None => String::new()},
+                                match difficulty {Some(difficulty) => format!("and constant <= {} and constant >= {}",
+                                                                                util::diff_to_constant_range(&difficulty).1,
+                                                                                util::diff_to_constant_range(&difficulty).0),
+                                                  None => String::new()}
+                            ).as_str()
+                 )?
+                .query_map([], |row|{
+                    Ok(record::Song{
+                        id: row.get(0).unwrap(),
+                        name: row.get(1).unwrap(),
+                        pack: row.get(2).unwrap(),
+                        level: row.get(3).unwrap(),
+                        constant: row.get(4).unwrap()
+                    })
+                 })?
+                .map(|x| x.expect("it should be valid"))
+                .collect()
+        )
+    }
+
+    //deleting song is safe only if deletion is successful.
+    pub fn delete_song(&self, id: u32) -> Result<usize>{
+        self.conn
+            .execute(format!("delete from song where id = {id}").as_str())
+    }
+
+    pub fn clear_song(&self) -> Result<usize>{
+        self.conn
+            .execute("delete from song")
+    }
+
+    //updating is likely to invalidate cache.
+    pub fn update_song(&mut self, id: u32, name: Option<String>, pack: Option<String>, level: Option<String>, constant: Option<f32>) -> Result<usize> {
+        let _ = self.conn.start_transaction();
+        self.conn.execute("update user set cached = 0")?;
+        self.conn.execute(
+            format!("update song set id={id}{}{}{}{} where id = {id}",
+                    match name {
+                        Some(name) => format!(",name=\'{name}\'"),
+                        None => String::new()
+                    },
+                    match pack {
+                        Some(pack) => format!(",pack=\'{pack}\'"),
+                        None => String::new()
+                    },
+                    match level {
+                        Some(level) => format!(",level=\'{level}\'"),
+                        None => String::new()
+                    },
+                    match constant {
+                        Some(constant) => format!(",constant={constant}"),
+                        None => String::new()
+                    }
+            ).as_str()
+        )
+    }
 }
 
 #[cfg(test)]
@@ -135,23 +222,20 @@ mod tests{
     use super::*;
 
     fn fake_db() -> CrudSvr {
-        let mut conn = sql3drv::Sql3Connection::open_memory().unwrap();
-        conn.execute("insert into song values(0, \'s1\', \'p1\', \'past\', 4.0)").unwrap();
-        conn.execute("insert into song values(1, \'s1\', \'p2\', \'past\', 3.0)").unwrap();
-        conn.execute("insert into song values(2, \'s2\', \'p1\', \'past\', 5.0)").unwrap();
-        CrudSvr::new(conn)
+        let mut srv = CrudSvr::new(sql3drv::Sql3Connection::open_memory().unwrap());
+        assert_eq!(srv.add_song("s1", "p1", "past", 4.0).unwrap(), 1);
+        assert_eq!(srv.add_song("s1", "p2", "past", 3.0).unwrap(), 1);
+        assert_eq!(srv.add_song("s2", "p1", "past", 4.0).unwrap(), 1);
+        assert_eq!(srv.update_song(3, None, None, None, Some(5.0)).unwrap(), 1);
+        srv
     }
 
     #[test]
     fn test_query() {
         let mut srv = fake_db();
-        match srv.query_b30() {
-            Err(_) => panic!("it should be valid"),
-            Ok(b30) => assert_eq!(b30, 0.0)
-        }
+        assert_eq!(srv.query_b30().unwrap(), 0.0);
 
-        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
-        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+        assert_eq!(srv.add_score(1, 9500000).unwrap(), 1);
 
         assert_eq!(srv.query_b30().unwrap(), 4.0 / 30.0);
     }
@@ -160,12 +244,13 @@ mod tests{
     fn test_query_best() {
         let mut srv = fake_db();
         //ptt 4.0
-        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
+        assert_eq!(srv.add_score(1, 9500000).unwrap(), 1);
         //ptt 2.0
-        assert_eq!(srv.add_score(1, 9200000).unwrap(), 1);
+        assert_eq!(srv.add_score(2, 9200000).unwrap(), 1);
         //ptt 6.0
-        assert_eq!(srv.add_score(2, 9800000).unwrap(), 1);
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.add_score(3, 9800000).unwrap(), 1);
+        //multiple
+        assert_eq!(srv.add_score(1, 9500000).unwrap(), 1);
 
         assert_eq!(srv.query_score(1, false).unwrap(), Vec::from([record::SongRank{name: "s2".to_owned(), pack: "p1".to_owned(), level: "past".to_owned(), constant: 5.0, best: 6.0}]));
         assert_eq!(srv.query_score(1, true).unwrap(), Vec::from([record::SongRank{name: "s1".to_owned(), pack: "p2".to_owned(), level: "past".to_owned(), constant: 3.0, best: 2.0}]));
@@ -175,8 +260,7 @@ mod tests{
     fn test_query_user() {
         let mut srv = fake_db();
 
-        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
-        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+        assert_eq!(srv.add_score(1, 9500000).unwrap(), 1);
 
         let record::User{b30, r10, ptt} = srv.query_user().unwrap();
         assert_eq!(b30, 4.0 / 30.0);
@@ -188,9 +272,8 @@ mod tests{
     fn test_delete_score(){
         let mut srv = fake_db();
 
-        assert_eq!(srv.add_score(0, 9200000).unwrap(), 1);
-        assert_eq!(srv.update_score(1, 0, 9500000).unwrap(), 1);
-        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+        assert_eq!(srv.add_score(1, 9200000).unwrap(), 1);
+        assert_eq!(srv.update_score(1, 1, 9500000).unwrap(), 1);
 
         assert!(srv.query_user().is_ok());
 
@@ -205,8 +288,7 @@ mod tests{
 
         let mut srv = fake_db();
 
-        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
-        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+        assert_eq!(srv.add_score(1, 9500000).unwrap(), 1);
 
         assert!(srv.query_user().is_ok());
         assert_eq!(srv.delete_score(1).unwrap(), 1);
@@ -216,4 +298,18 @@ mod tests{
         assert_eq!(r10, 0.0);
         assert_eq!(ptt, 0.0);
     }
+
+    #[test]
+    fn test_query_score_id() {
+        let mut srv = fake_db();
+        assert_eq!(srv.add_score(1, 9200000).unwrap(), 1);
+        assert_eq!(srv.query_scoreid(1, 9200000).unwrap().unwrap(), 1);
+    }
+
+    #[test]
+    fn test_query_song(){
+        let mut srv = fake_db();
+        assert_eq!(srv.query_song(Some(String::from("s1")), None, Some(String::from("past")), None, None).unwrap().len(), 2);
+    }
 }
+

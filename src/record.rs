@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : record.rs
-*   Last Modified : 2023-09-10 15:38
+*   Last Modified : 2023-09-10 16:51
 *   Describe      : Record struct type.
 *
 * ====================================================*/
@@ -27,6 +27,20 @@ pub struct User{
     pub ptt: f32
 }
 
+#[derive(Debug, Clone, PartialEq)]
+pub struct Song{
+    pub id: u32,
+    pub name: String,
+    pub pack: String,
+    pub level: String,
+    pub constant: f32
+}
+
+pub type SongDifficulty = (u32, bool);
+pub type SongConstantRange = (f32, f32);
+
 impl Eq for SongRank{}
 
 impl Eq for User{}
+
+impl Eq for Song{}
