@@ -4,13 +4,15 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-09 16:46
+*   Last Modified : 2023-09-10 12:02
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
 
 use crate::sql3drv;
 use rusqlite::Result;
+use crate::record;
+use crate::util;
 
 pub struct CrudSvr{
     conn: sql3drv::Sql3Connection
@@ -37,10 +39,7 @@ impl CrudSvr{
                       .prepare("select song.constant, score.sc from score inner join song on score.songid = song.id")?
                       .query_map([], |row| {
                           let (constant, score) :(f32, i32) = (row.get(0).unwrap(), row.get(1).unwrap());
-                          if score >= 9800000 {
-                              return Ok(constant + 1.0 + (score - 9800000) as f32 /200000.0);
-                          }
-                          Ok(constant + (score - 9500000) as f32 / 300000.0)
+                          Ok(util::eval_song_ptt(constant, score))
                       })?
                       .map(|x| x.expect("should always be ok"))
                       .collect::<Vec<f32>>();
@@ -64,6 +63,33 @@ impl CrudSvr{
 
         Ok(b30)
     }
+
+    pub fn query_score(&mut self, limit: usize, reverse: bool) -> Result<Vec<record::SongRank>>{
+        let _ = self.conn.start_transaction()?;
+        let mut all_score = self.conn
+                                .prepare("select avg(song.constant), song.name, song.pack, song.level, max(score.sc) from song inner join score on song.id = score.songid group by song.name, song.pack, song.level")?
+                                .query_map([], |row|{
+                                    Ok(record::SongRank{
+                                            constant: row.get(0).unwrap(),
+                                            name: row.get(1).unwrap(),
+                                            pack: row.get(2).unwrap(),
+                                            level: row.get(3).unwrap(),
+                                            best: util::eval_song_ptt(row.get(0).unwrap(), row.get(4).unwrap())
+                                    })
+                                })?
+                                .map(|x| Some(x.expect("it should be valid")))
+                                .collect::<Vec<Option<record::SongRank>>>();
+        all_score.sort_by(|a, b| {
+            let order = a.as_ref().unwrap().best.partial_cmp(&b.as_ref().unwrap().best).unwrap();
+            //default is ascent
+            match reverse{
+                true => order,
+                false => order.reverse()
+            }
+        });
+
+        Ok(all_score.iter_mut().take(limit).map(|x| x.take().unwrap()).collect())
+    }
 }
 
 #[cfg(test)]
@@ -73,6 +99,8 @@ mod tests{
     fn fake_db() -> CrudSvr {
         let mut conn = sql3drv::Sql3Connection::open_memory().unwrap();
         conn.execute("insert into song values(0, \'s1\', \'p1\', \'past\', 4.0)").unwrap();
+        conn.execute("insert into song values(1, \'s1\', \'p2\', \'past\', 3.0)").unwrap();
+        conn.execute("insert into song values(2, \'s2\', \'p1\', \'past\', 5.0)").unwrap();
         CrudSvr::new(conn)
     }
 
@@ -91,5 +119,19 @@ mod tests{
             Err(_) => panic!("it should be valid"),
             Ok(b30) => assert_eq!(b30, 4.0 / 30.0)
         }
+    }
+
+    #[test]
+    fn test_query_best() {
+        let mut srv = fake_db();
+        //ptt 4.0
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        //ptt 2.0
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(1, 9200000)").unwrap(), 1);
+        //ptt 6.0
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(2, 9800000)").unwrap(), 1);
+
+        assert_eq!(srv.query_score(1, false).unwrap(), Vec::from([record::SongRank{name: "s2".to_owned(), pack: "p1".to_owned(), level: "past".to_owned(), constant: 5.0, best: 6.0}]));
+        assert_eq!(srv.query_score(1, true).unwrap(), Vec::from([record::SongRank{name: "s1".to_owned(), pack: "p2".to_owned(), level: "past".to_owned(), constant: 3.0, best: 2.0}]));
     }
 }

@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : sql3drv.rs
-*   Last Modified : 2023-09-09 16:41
+*   Last Modified : 2023-09-10 11:08
 *   Describe      : Database interface
 *
 * ====================================================*/
@@ -27,8 +27,8 @@ use rusqlite::Result;
  *   constant float
  * 3. Score table
  *   id int(index)
- *   sondid int
- *   score int
+ *   songid int
+ *   sc int
  * 4. Alias table
  *   songid int
  *   alias varchar(index+)
