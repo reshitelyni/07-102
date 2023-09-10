@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-10 13:26
+*   Last Modified : 2023-09-10 13:50
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -100,6 +100,22 @@ impl CrudSvr{
                              })?;
         Ok(record::User{b30, r10, ptt})
     }
+
+    pub fn delete_score(&mut self, id: u32) -> Result<usize> {
+        let _ = self.conn.start_transaction()?;
+        let result = self.conn
+                         .execute(format!("delete from score where id = {id}").as_str());
+        self.conn
+            .execute("update user set cached = 0")?;
+        result
+    }
+
+    pub fn clear_score(&mut self) -> Result<usize>{
+        let _ = self.conn.start_transaction()?;
+        let result = self.conn.execute("delete from score");
+        self.conn.execute("update user set cached = 0")?;
+        result
+    }
 }
 
 #[cfg(test)]
@@ -160,5 +176,37 @@ mod tests{
                 assert_eq!(r10, -0.4);
             }
         }
+    }
+
+    #[test]
+    fn test_delete_score(){
+        let mut srv = fake_db();
+
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+
+        assert!(srv.query_user().is_ok());
+
+        assert_eq!(srv.clear_score().unwrap(), 1);
+
+        let record::User{b30, r10, ptt} = srv.query_user().unwrap();
+
+        assert_eq!(b30, 0.0);
+        assert_eq!(r10, 0.0);
+        assert_eq!(ptt, 0.0);
+
+
+        let mut srv = fake_db();
+
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
+
+        assert!(srv.query_user().is_ok());
+        assert_eq!(srv.delete_score(1).unwrap(), 1);
+        let record::User{b30, r10, ptt} = srv.query_user().unwrap();
+
+        assert_eq!(b30, 0.0);
+        assert_eq!(r10, 0.0);
+        assert_eq!(ptt, 0.0);
     }
 }
