@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-10 13:50
+*   Last Modified : 2023-09-10 14:34
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -36,7 +36,7 @@ impl CrudSvr{
         }
 
         let mut b30 = self.conn
-                      .prepare("select song.constant, score.sc from score inner join song on score.songid = song.id")?
+                      .prepare("select avg(song.constant), max(score.sc) from score inner join song on score.songid = song.id group by song.id")?
                       .query_map([], |row| {
                           let (constant, score) :(f32, i32) = (row.get(0).unwrap(), row.get(1).unwrap());
                           Ok(util::eval_song_ptt(constant, score))
@@ -116,6 +116,18 @@ impl CrudSvr{
         self.conn.execute("update user set cached = 0")?;
         result
     }
+
+    pub fn add_score(&mut self, songid: u32, score: u32) -> Result<usize>{
+        let _ = self.conn.start_transaction()?;
+        self.conn.execute("update user set cached = 0")?;
+        self.conn.execute(format!("insert into score(songid, sc) values({songid}, {score})").as_str())
+    }
+
+    pub fn update_score(&mut self, id: u32, songid: u32, sc: u32) -> Result<usize>{
+        let _ = self.conn.start_transaction()?;
+        self.conn.execute("update user set cached = 0")?;
+        self.conn.execute(format!("update score set songid = {songid}, sc = {sc} where id = {id}").as_str())
+    }
 }
 
 #[cfg(test)]
@@ -138,24 +150,22 @@ mod tests{
             Ok(b30) => assert_eq!(b30, 0.0)
         }
 
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
         assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
 
-        match srv.query_b30() {
-            Err(_) => panic!("it should be valid"),
-            Ok(b30) => assert_eq!(b30, 4.0 / 30.0)
-        }
+        assert_eq!(srv.query_b30().unwrap(), 4.0 / 30.0);
     }
 
     #[test]
     fn test_query_best() {
         let mut srv = fake_db();
         //ptt 4.0
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
         //ptt 2.0
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(1, 9200000)").unwrap(), 1);
+        assert_eq!(srv.add_score(1, 9200000).unwrap(), 1);
         //ptt 6.0
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(2, 9800000)").unwrap(), 1);
+        assert_eq!(srv.add_score(2, 9800000).unwrap(), 1);
+        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
 
         assert_eq!(srv.query_score(1, false).unwrap(), Vec::from([record::SongRank{name: "s2".to_owned(), pack: "p1".to_owned(), level: "past".to_owned(), constant: 5.0, best: 6.0}]));
         assert_eq!(srv.query_score(1, true).unwrap(), Vec::from([record::SongRank{name: "s1".to_owned(), pack: "p2".to_owned(), level: "past".to_owned(), constant: 3.0, best: 2.0}]));
@@ -165,24 +175,21 @@ mod tests{
     fn test_query_user() {
         let mut srv = fake_db();
 
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
         assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
 
-        match srv.query_user() {
-            Err(_) => panic!("it should be valid"),
-            Ok(record::User{b30, r10, ptt}) => {
-                assert_eq!(b30, 4.0 / 30.0);
-                assert_eq!(ptt, 0.0);
-                assert_eq!(r10, -0.4);
-            }
-        }
+        let record::User{b30, r10, ptt} = srv.query_user().unwrap();
+        assert_eq!(b30, 4.0 / 30.0);
+        assert_eq!(ptt, 0.0);
+        assert_eq!(r10, -0.4);
     }
 
     #[test]
     fn test_delete_score(){
         let mut srv = fake_db();
 
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.add_score(0, 9200000).unwrap(), 1);
+        assert_eq!(srv.update_score(1, 0, 9500000).unwrap(), 1);
         assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
 
         assert!(srv.query_user().is_ok());
@@ -198,7 +205,7 @@ mod tests{
 
         let mut srv = fake_db();
 
-        assert_eq!(srv.conn.execute("insert into score(songid, sc) values(0, 9500000)").unwrap(), 1);
+        assert_eq!(srv.add_score(0, 9500000).unwrap(), 1);
         assert_eq!(srv.conn.execute("update user set cached = 0").unwrap(), 1);
 
         assert!(srv.query_user().is_ok());
