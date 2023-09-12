@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : flags.rs
-*   Last Modified : 2023-09-12 15:36
+*   Last Modified : 2023-09-12 18:08
 *   Describe      : Flags parser.
 *
 * ====================================================*/
@@ -58,7 +58,7 @@ pub struct ScoreArgs{
 #[derive(Subcommand, Clone)]
 pub enum ScoreArgsAction{
     Ls {limit: Option<u32>, #[arg(short = 's', long = "sort")] sort: bool, #[arg(short = 'r', long = "reverse")] reverse: bool},
-    Add {name: String, pack: Option<String>, #[arg(value_enum)] level: SongLevel, score: u32},
+    Add {name: String, #[arg(value_enum)] level: SongLevel, score: u32, pack: Option<String>} ,
     Delete {song: u32, sc: u32, #[arg(short = 'a', long = "all")] clear: bool},
     Potential {potential: Option<f32>},
     B30,

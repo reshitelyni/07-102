@@ -4,13 +4,14 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : util.rs
-*   Last Modified : 2023-09-10 15:52
+*   Last Modified : 2023-09-12 17:10
 *   Describe      : Common Utilities.
 *
 * ====================================================*/
 use std::cmp::Ordering;
 use crate::record::SongDifficulty;
 use crate::record::SongConstantRange;
+use crate::flags::SongLevel;
 
 pub fn eval_song_ptt(constant: f32, score: i32) -> f32{
     match score.cmp(&9800000){
@@ -41,5 +42,14 @@ pub fn constant_to_diff(constant: f32) -> SongDifficulty{
         return (constant as u32, true);
     } else{
         return (constant as u32, false);
+    }
+}
+
+pub fn level_to_str(level: &SongLevel) -> &'static str{
+    match level {
+        SongLevel::Past => "past",
+        SongLevel::Present => "present",
+        SongLevel::Future => "future",
+        SongLevel::Beyond => "beyond"
     }
 }
