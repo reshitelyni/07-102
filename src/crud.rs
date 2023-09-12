@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-10 17:15
+*   Last Modified : 2023-09-12 14:12
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -214,6 +214,13 @@ impl CrudSvr{
                     }
             ).as_str()
         )
+    }
+}
+
+impl CrudSvr{
+    pub fn insert_alias(&self, id: u32, alias: String) -> Result<usize>{
+        self.conn
+            .execute(format!("insert into alias values({id}, \'{alias}\')").as_str())
     }
 }
 
