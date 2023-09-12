@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-12 14:12
+*   Last Modified : 2023-09-12 14:31
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -221,6 +221,18 @@ impl CrudSvr{
     pub fn insert_alias(&self, id: u32, alias: String) -> Result<usize>{
         self.conn
             .execute(format!("insert into alias values({id}, \'{alias}\')").as_str())
+    }
+
+    pub fn query_alias(&self, alias: String) -> Result<Vec<u32>>{
+        Ok(
+            self.conn
+                .prepare(format!("select songid from alias where alias = {alias}").as_str())?
+                .query_map([], |row|{
+                    row.get(0)
+                })?
+                .map(|x| x.expect("it should be valid"))
+                .collect()
+        )
     }
 }
 
