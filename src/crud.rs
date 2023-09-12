@@ -4,7 +4,7 @@
 *   Author        : 6607changchun
 *   Email         : luobojiaozi@163.com
 *   File Name     : crud.rs
-*   Last Modified : 2023-09-12 14:31
+*   Last Modified : 2023-09-12 15:43
 *   Describe      : CRUD execution.
 *
 * ====================================================*/
@@ -139,6 +139,11 @@ impl CrudSvr{
                .take()
                .copied()
         )
+    }
+
+    pub fn update_ptt(&mut self, ptt: f32) -> Result<usize>{
+        let _ = self.conn.start_transaction()?;
+        self.conn.execute(format!("update user set cached = 0, ptt = {ptt}").as_str())
     }
 }
 
