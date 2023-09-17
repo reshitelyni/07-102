@@ -8,11 +8,11 @@
 *   Describe      : Flags parser.
 *
 * ====================================================*/
-use clap::{Parser, Subcommand, Args, ValueEnum};
+use clap::{Args, Parser, Subcommand, ValueEnum};
 
 #[derive(Parser)]
 #[command(author = "6607changchun", version = "0.0.1", about = "arccal", long_about = None)]
-pub struct ArcArgs{
+pub struct ArcArgs {
     #[command(subcommand)]
     pub field: FieldArgs,
     #[arg(short = 'p', long = "prefix", default_value_t = String::from("."))]
@@ -20,53 +20,107 @@ pub struct ArcArgs{
 }
 
 #[derive(Subcommand)]
-pub enum FieldArgs{
+pub enum FieldArgs {
     Song(SongArgs),
     Score(ScoreArgs),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, ValueEnum)]
-pub enum SongLevel{
+pub enum SongLevel {
     Past,
     Present,
     Future,
-    Beyond
+    Beyond,
 }
 
 #[derive(Args, Clone)]
-pub struct SongArgs{
+pub struct SongArgs {
     #[command(subcommand)]
-    pub action: SongArgsAction
+    pub action: SongArgsAction,
 }
 
 #[derive(Subcommand, Clone)]
-pub enum SongArgsAction{
+pub enum SongArgsAction {
     Ls,
-    Add {name: String, pack: String, #[arg(value_enum)] level: SongLevel, constant: f32},
-    Update {name: String, #[arg(value_enum)] level: SongLevel, constant: Option<f32>, pack: Option<String>, difficulty: Option<u32>, #[arg(short = 'p', long = "plus")] plus: bool},
-    Delete {name: String, #[arg(value_enum)] level: SongLevel, pack: Option<String>},
-    Search {name: Option<String>, pack: Option<String>, #[arg(value_enum)] level: Option<SongLevel>, constant: Option<f32>, difficulty: Option<u32>, #[arg(short = 'p', long = "plus")] plus: bool},
-    Alias {origin: String, alias: String, pack: Option<String>, #[arg(short = 'd', long = "delete")] delete: bool}
+    Add {
+        name: String,
+        pack: String,
+        #[arg(value_enum)]
+        level: SongLevel,
+        constant: f32,
+    },
+    Update {
+        name: String,
+        #[arg(value_enum)]
+        level: SongLevel,
+        constant: Option<f32>,
+        pack: Option<String>,
+        difficulty: Option<u32>,
+        #[arg(short = 'p', long = "plus")]
+        plus: bool,
+    },
+    Delete {
+        name: String,
+        #[arg(value_enum)]
+        level: SongLevel,
+        pack: Option<String>,
+    },
+    Search {
+        name: Option<String>,
+        pack: Option<String>,
+        #[arg(value_enum)]
+        level: Option<SongLevel>,
+        constant: Option<f32>,
+        difficulty: Option<u32>,
+        #[arg(short = 'p', long = "plus")]
+        plus: bool,
+    },
+    Alias {
+        origin: String,
+        alias: String,
+        pack: Option<String>,
+        #[arg(short = 'd', long = "delete")]
+        delete: bool,
+    },
 }
 
 #[derive(Args, Clone)]
-pub struct ScoreArgs{
+pub struct ScoreArgs {
     #[command(subcommand)]
-    pub action: ScoreArgsAction
+    pub action: ScoreArgsAction,
 }
 
 #[derive(Subcommand, Clone)]
-pub enum ScoreArgsAction{
-    Ls {limit: Option<u32>, #[arg(short = 's', long = "sort")] sort: bool, #[arg(short = 'r', long = "reverse")] reverse: bool},
-    Add {name: String, #[arg(value_enum)] level: SongLevel, score: u32, pack: Option<String>} ,
-    Delete {song: u32, sc: u32, #[arg(short = 'a', long = "all")] clear: bool},
-    Potential {potential: Option<f32>},
+pub enum ScoreArgsAction {
+    Ls {
+        limit: Option<u32>,
+        #[arg(short = 's', long = "sort")]
+        sort: bool,
+        #[arg(short = 'r', long = "reverse")]
+        reverse: bool,
+    },
+    Add {
+        name: String,
+        #[arg(value_enum)]
+        level: SongLevel,
+        score: u32,
+        pack: Option<String>,
+    },
+    Delete {
+        song: u32,
+        sc: u32,
+        #[arg(short = 'a', long = "all")]
+        clear: bool,
+    },
+    Potential {
+        potential: Option<f32>,
+    },
     B30,
-    R10
+    R10,
 }
 
-impl ArcArgs{
-    pub fn new() -> ArcArgs{
+impl ArcArgs {
+    pub fn new() -> ArcArgs {
         ArcArgs::parse()
     }
 }

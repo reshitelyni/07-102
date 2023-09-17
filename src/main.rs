@@ -8,8 +8,8 @@
 *   Describe      : Client executable.
 *
 * ====================================================*/
-use arccal::ArcArgs;
 use arccal::Actor;
+use arccal::ArcArgs;
 
 fn main() {
     let args = ArcArgs::new();
