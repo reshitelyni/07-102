@@ -2,6 +2,12 @@
 All notable changes to this project will be documented in this file. See [conventional commits](https://www.conventionalcommits.org/) for commit guidelines.
 
 - - -
+## 1.0.1 - 2023-10-15
+#### Style
+- rustfmt - (bee15b7) - 6607changchun
+
+- - -
+
 ## 1.0.0 - 2023-09-12
 #### Features
 - all actions - (2548de4) - 6607changchun
